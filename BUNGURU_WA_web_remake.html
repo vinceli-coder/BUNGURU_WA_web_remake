@@ -13,8 +13,10 @@
   .lb{background:#0d1826;border:1px solid #23405c;border-radius:4px;color:#7fa8c9;font-size:11px;
       font-family:inherit;padding:3px 10px;cursor:pointer;}
   .lb.on{background:#17436b;border-color:#3f81b8;color:#e8f4ff;}
-  #cv{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;
+  #game{position:relative;line-height:0;}
+  #cv{display:block;image-rendering:pixelated;image-rendering:crisp-edges;background:#000;
       box-shadow:0 0 0 1px #1c2a3a,0 0 28px #0a2038;}
+  #textCv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
   #help{font-size:12px;line-height:1.75;max-width:520px;background:#0a121d;border:1px solid #16283c;
         border-radius:6px;padding:10px 16px;}
   #help b{color:#cfe6f5;}
@@ -53,7 +55,10 @@
     <button class="lb" data-lang="ja">日本語</button>
     <button class="lb" data-lang="en">English</button>
   </div>
-  <canvas id="cv" width="320" height="240"></canvas>
+  <div id="game">
+    <canvas id="cv" width="320" height="240"></canvas>
+    <canvas id="textCv" width="1280" height="960" aria-hidden="true"></canvas>
+  </div>
   <div id="help"></div>
   <div id="credit"></div>
 </div>
@@ -464,21 +469,22 @@ function drawText(ctx, str, x, y, color = 0) {
   }
 }
 const centerText = (ctx, str, y, color = 0) => drawText(ctx, str, (320 - str.length * 8) >> 1, y, color);
+const uiFont = () => lang === 'ja' ? '600 11px "Hiragino Sans","Yu Gothic","Noto Sans JP",sans-serif' : '600 11px "PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif';
 function drawUiText(ctx, str, x, y, color = 0) {
   if (lang === 'en') { drawText(ctx, str, x, y, color); return; }
-  ctx.save();
-  ctx.font = 'bold 11px "PingFang TC","Hiragino Sans","Noto Sans CJK TC",sans-serif';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = ['#f4f4f4', '#ff704c', '#ffd83d'][color];
-  ctx.fillText(str, x, y - 1);
-  ctx.restore();
+  tctx.save();
+  tctx.font = uiFont();
+  tctx.textBaseline = 'top';
+  tctx.fillStyle = ['#f4f4f4', '#ff704c', '#ffd83d'][color];
+  tctx.fillText(str, x, y - 1);
+  tctx.restore();
 }
 function centerUiText(ctx, str, y, color = 0) {
   if (lang === 'en') { centerText(ctx, str, y, color); return; }
-  ctx.save();
-  ctx.font = 'bold 11px "PingFang TC","Hiragino Sans","Noto Sans CJK TC",sans-serif';
-  const x = (320 - ctx.measureText(str).width) / 2;
-  ctx.restore();
+  tctx.save();
+  tctx.font = uiFont();
+  const x = (320 - tctx.measureText(str).width) / 2;
+  tctx.restore();
   drawUiText(ctx, str, x, y, color);
 }
 // centre within the left play viewport (for in-game overlays like MISS / START)
@@ -500,7 +506,10 @@ function mapTileForLevel(v, gameLevel) {
 
 /* ================= state ================= */
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const textCv = document.getElementById('textCv'), tctx = textCv.getContext('2d');
 ctx.imageSmoothingEnabled = false;
+tctx.setTransform(4, 0, 0, 4, 0, 0);
+let textLayerActive = false;
 let state = 'title';
 let level = 1;
 let menuSel = 0, menuOn = true;
@@ -1055,6 +1064,9 @@ function drawRankingScreen() {
 
 function render() {
   ctx.clearRect(0, 0, 320, 240);
+  const localizedUi = lang !== 'en' && (state === 'title' || state === 'option');
+  if (localizedUi || textLayerActive) tctx.clearRect(0, 0, 320, 240);
+  textLayerActive = localizedUi;
   switch (state) {
     case 'title': {
       ctx.drawImage(IMG.title, 0, 0);
